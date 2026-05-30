@@ -87,15 +87,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </head>
 <body>
 
-  <h2>Tiny Calendar</h2>
-  <p>Enter your password to continue</p>
-  <input type="password" id="pw-input" placeholder="••••••••" maxlength="30"
-    onkeydown="if(event.key==='Enter')tryUnlock()" />
-  <div class="err" id="pw-err"></div>
-  <button onclick="tryUnlock()">Unlock</button>
-</div>
 
-<!-- Calendar (hidden until unlocked) -->
 <div id="app">
   <div class="top-bar">
     <div class="year-nav">
