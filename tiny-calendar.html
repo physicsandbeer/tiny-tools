@@ -13,8 +13,6 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#121212;color:#e8e8e8}
-
-
 #app{padding:6px 8px 40px}
 .top-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 2px 10px;position:sticky;top:0;background:#121212;z-index:10;border-bottom:0.5px solid #2a2a2a}
 .year-nav{display:flex;align-items:center;gap:10px}
@@ -47,20 +45,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dot-row{display:flex;gap:1px;flex-wrap:wrap;justify-content:center;align-items:center;padding:2px}
 .evdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 .mdiv{height:1px;background:#2a2a2a;margin:3px 0}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:100}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:100}
 .modal{background:#1e1e1e;border-radius:16px 16px 0 0;padding:16px 16px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
 .handle{width:36px;height:4px;border-radius:2px;background:#444;margin:0 auto 14px}
 .modal h3{font-size:16px;font-weight:600;color:#e8e8e8;margin-bottom:2px}
 .modal-sub{font-size:12px;color:#666;margin-bottom:14px}
 .modal label{font-size:12px;color:#888;display:block;margin-bottom:4px;margin-top:12px}
-.modal input[type=text],.modal input[type=date],.modal select,.modal textarea{width:100%;font-size:15px;padding:9px 12px;border:0.5px solid #444;border-radius:10px;background:#2a2a2a;color:#e8e8e8;-webkit-appearance:none;appearance:none;outline:none}
-.modal input[type=text]:focus,.modal input[type=date]:focus,.modal select:focus,.modal textarea:focus{border-color:#7F77DD}
+.modal input[type=text],.modal input[type=date],.modal input[type=time],.modal select,.modal textarea{width:100%;font-size:15px;padding:9px 12px;border:0.5px solid #444;border-radius:10px;background:#2a2a2a;color:#e8e8e8;-webkit-appearance:none;appearance:none;outline:none}
+.modal input[type=text]:focus,.modal input[type=date]:focus,.modal input[type=time]:focus,.modal select:focus,.modal textarea:focus{border-color:#7F77DD}
 .modal textarea{height:56px;resize:none}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding:10px 0;border-top:0.5px solid #2a2a2a}
 .toggle-lbl{font-size:14px;color:#e8e8e8}
 .toggle{position:relative;width:40px;height:22px;flex-shrink:0}
 .toggle input{opacity:0;width:0;height:0}
-.slider{position:absolute;inset:0;background:#ccc;border-radius:22px;cursor:pointer;transition:background .2s}
+.slider{position:absolute;inset:0;background:#444;border-radius:22px;cursor:pointer;transition:background .2s}
 .toggle input:checked+.slider{background:#7F77DD}
 .slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:transform .2s}
 .toggle input:checked+.slider:before{transform:translateX(18px)}
@@ -71,14 +69,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mbtns button{flex:1;padding:12px;border-radius:12px;font-size:14px;font-weight:500;cursor:pointer;border:none;-webkit-tap-highlight-color:transparent}
 .bs{background:#7F77DD;color:#fff}.bs:active{background:#6056c4}
 .bc{background:#2a2a2a;color:#aaa}.bc:active{background:#333}
-.bd{background:#FCEBEB;color:#A32D2D}.bd:active{background:#f7c1c1}
+.bd{background:#3a1a1a;color:#f09595}.bd:active{background:#4a2020}
 .eli{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer;margin-bottom:3px;-webkit-tap-highlight-color:transparent}
 .eli:active{background:#2a2a2a}
 .eli .edot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.eli .en{font-size:14px;flex:1;color:#e8e8e8}
-.eli .emeta{font-size:10px;color:#666}
-.eli .ei{font-size:13px;color:#bbb}
+.eli .einfo{flex:1;min-width:0}
+.eli .en{font-size:14px;color:#e8e8e8}
+.eli .emeta{font-size:10px;color:#666;margin-top:1px}
+.eli .etime{font-size:11px;color:#888;margin-top:1px}
 .no-ev{font-size:14px;color:#555;margin-bottom:12px}
+.time-row{margin-top:12px}
+.time-row.hidden{display:none}
 @supports (padding-bottom: env(safe-area-inset-bottom)){
   .modal{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
   .top-bar{padding-top:max(10px, env(safe-area-inset-top))}
@@ -86,7 +87,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </style>
 </head>
 <body>
-
 
 <div id="app">
   <div class="top-bar">
@@ -109,12 +109,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="mbg" class="modal-bg" style="display:none"></div>
 
 <script>
-// ─── CALENDAR ───────────────────────────────────────────────
 const TYPES=['event','birthday','pto','trip','sick day','holiday','work'];
 const LABELS={event:'Event',birthday:'Birthday',pto:'PTO',trip:'Trip','sick day':'Sick day',holiday:'Holiday',work:'Work'};
 const TC={event:'#E24B4A',birthday:'#D4537E',pto:'#7F77DD',trip:'#BA7517','sick day':'#378ADD',holiday:'#EF9F27',work:'#1D9E75'};
 const MSHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// Types that get a time field (not whole-day by nature)
+const TIMED_TYPES=new Set(['event','work','birthday']);
 
 let year=new Date().getFullYear();
 let evs=[];
@@ -131,6 +133,24 @@ function parseDate(s){return new Date(s+'T12:00:00')}
 function load(){try{const r=localStorage.getItem('cal2w_v4');if(r){const p=JSON.parse(r);if(Array.isArray(p))evs=p;}}catch(e){evs=[]}}
 function save(){try{localStorage.setItem('cal2w_v4',JSON.stringify(evs))}catch(e){}}
 
+function fmt12(t){
+  if(!t)return '';
+  const [h,m]=t.split(':').map(Number);
+  const ampm=h>=12?'pm':'am';
+  const hr=h%12||12;
+  return `${hr}:${String(m).padStart(2,'0')}${ampm}`;
+}
+
+function sortEvents(list){
+  // No time first, then sorted by time ascending
+  return [...list].sort((a,b)=>{
+    if(!a.time&&!b.time)return 0;
+    if(!a.time)return -1;
+    if(!b.time)return 1;
+    return a.time.localeCompare(b.time);
+  });
+}
+
 function getEventsForDate(k){
   const d=parseDate(k);
   const mm=k.slice(5,7);
@@ -146,7 +166,7 @@ function getEventsForDate(k){
       if(d>=start&&d<=end)result.push(ev);
     }
   });
-  return result;
+  return sortEvents(result);
 }
 
 function isWeekend(i){return i===5||i===6||i===12||i===13}
@@ -254,13 +274,15 @@ function openDay(d,k){
       const meta=[];
       if(ev.repeat)meta.push('repeats yearly');
       if(ev.endDate&&ev.endDate!==ev.startDate)meta.push('multi-day');
+      const timeStr=ev.time?fmt12(ev.time):'';
       html+=`<div class="eli" onclick="openEdit(${idx})">
         <div class="edot" style="background:${TC[ev.type]}"></div>
-        <div style="flex:1;min-width:0">
+        <div class="einfo">
           <div class="en">${ev.name}</div>
+          ${timeStr?`<div class="etime">${timeStr}</div>`:''}
           ${meta.length?`<div class="emeta">${meta.join(' · ')}</div>`:''}
         </div>
-        <span class="ei">✏️</span>
+        <span style="font-size:13px;color:#555">✏️</span>
       </div>`;
     });
   } else {
@@ -277,11 +299,31 @@ function typeOpts(sel){
   return TYPES.map(t=>`<option value="${t}"${t===sel?' selected':''}>${LABELS[t]}</option>`).join('');
 }
 
+function onTypeChange(){
+  const t=document.getElementById('et').value;
+  const rr=document.getElementById('repeat-row');
+  if(rr)rr.style.display=(t==='birthday'||t==='holiday')?'flex':'none';
+  const er=document.getElementById('end-row');
+  if(t==='birthday'||t==='holiday'){
+    const rep=document.getElementById('erep');if(rep)rep.checked=true;
+    if(er)er.className='end-date-row hidden';
+  } else {
+    if(er)er.className='end-date-row';
+  }
+  // Show time field only for timed types
+  const tr=document.getElementById('time-row');
+  if(tr)tr.className='time-row'+(TIMED_TYPES.has(t)?'':' hidden');
+}
+
 function openAdd(k){
   const html=`<div class="modal"><div class="handle"></div>
     <h3>Add event</h3>
-    <label>Name</label><input type="text" id="en" placeholder="e.g. Beach vacation" />
-    <label>Type</label><select id="et" onchange="onTypeChange()">${typeOpts('')}</select>
+    <label>Name</label><input type="text" id="en" placeholder="e.g. Doctor appointment" />
+    <label>Type</label><select id="et" onchange="onTypeChange()">${typeOpts('event')}</select>
+    <div id="time-row" class="time-row">
+      <label>Start time <span class="hint">— optional</span></label>
+      <input type="time" id="etm" />
+    </div>
     <label>Start date</label><input type="date" id="esd" value="${k}" />
     <div id="end-row" class="end-date-row">
       <label>End date <span class="hint">— leave blank for single day</span></label>
@@ -300,27 +342,19 @@ function openAdd(k){
   setTimeout(()=>{const el=document.getElementById('en');if(el)el.focus()},50);
 }
 
-function onTypeChange(){
-  const t=document.getElementById('et').value;
-  const rr=document.getElementById('repeat-row');
-  if(rr)rr.style.display=(t==='birthday'||t==='holiday')?'flex':'none';
-  const er=document.getElementById('end-row');
-  if(t==='birthday'||t==='holiday'){
-    const rep=document.getElementById('erep');if(rep)rep.checked=true;
-    if(er)er.className='end-date-row hidden';
-  } else {
-    if(er)er.className='end-date-row';
-  }
-}
-
 function openEdit(idx){
   const ev=evs[idx];if(!ev)return;
   const showEnd=(ev.type!=='birthday'&&ev.type!=='holiday');
   const showRep=(ev.type==='birthday'||ev.type==='holiday');
+  const showTime=TIMED_TYPES.has(ev.type);
   const html=`<div class="modal"><div class="handle"></div>
     <h3>Edit event</h3>
     <label>Name</label><input type="text" id="en" value="${ev.name.replace(/"/g,'&quot;')}" />
     <label>Type</label><select id="et" onchange="onTypeChange()">${typeOpts(ev.type)}</select>
+    <div id="time-row" class="time-row${showTime?'':' hidden'}">
+      <label>Start time <span class="hint">— optional</span></label>
+      <input type="time" id="etm" value="${ev.time||''}" />
+    </div>
     <label>Start date</label><input type="date" id="esd" value="${ev.startDate}" />
     <div id="end-row" class="end-date-row${showEnd?'':' hidden'}">
       <label>End date <span class="hint">— leave blank for single day</span></label>
@@ -349,8 +383,10 @@ function saveEv(idx){
   const endDate=eedEl&&eedEl.value?eedEl.value:startDate;
   const repEl=document.getElementById('erep');
   const repeat=repEl?repEl.checked:false;
+  const tmEl=document.getElementById('etm');
+  const time=tmEl&&tmEl.value?tmEl.value:'';
   const note=(document.getElementById('eno').value||'').trim();
-  const entry={name,type,startDate,endDate,repeat,note};
+  const entry={name,type,startDate,endDate,repeat,time,note};
   if(idx!=null)evs[idx]=entry;else evs.push(entry);
   save();closeModal();render();
 }
@@ -373,7 +409,6 @@ document.getElementById('tdy').addEventListener('click',()=>{
 
 load();render();
 setTimeout(()=>{const c=document.querySelector('.today-cell');if(c)c.scrollIntoView({behavior:'smooth',block:'center'})},200);
-
 </script>
 </body>
 </html>
