@@ -21,6 +21,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .nb:active{background:#2a2a2a}
 .tb{font-size:12px;padding:5px 12px;background:none;border:0.5px solid #444;border-radius:8px;cursor:pointer;color:#aaa;-webkit-tap-highlight-color:transparent}
 .tb:active{background:#2a2a2a}
+.sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-left:6px;vertical-align:middle}
+.sync-dot.ok{background:#1D9E75}
+.sync-dot.saving{background:#EF9F27}
+.sync-dot.err{background:#E24B4A}
 .legend{display:flex;flex-wrap:wrap;gap:6px;padding:8px 2px 10px}
 .li{display:flex;align-items:center;gap:3px;font-size:10px;color:#aaa}
 .ld{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -63,7 +67,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:transform .2s}
 .toggle input:checked+.slider:before{transform:translateX(18px)}
 .end-date-row{margin-top:12px}
-.end-date-row.hidden{display:none}
+.end-date-row.hidden,.time-row.hidden{display:none}
 .hint{font-size:11px;color:#555}
 .mbtns{display:flex;gap:8px;margin-top:16px}
 .mbtns button{flex:1;padding:12px;border-radius:12px;font-size:14px;font-weight:500;cursor:pointer;border:none;-webkit-tap-highlight-color:transparent}
@@ -78,8 +82,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .eli .emeta{font-size:10px;color:#666;margin-top:1px}
 .eli .etime{font-size:11px;color:#888;margin-top:1px}
 .no-ev{font-size:14px;color:#555;margin-bottom:12px}
-.time-row{margin-top:12px}
-.time-row.hidden{display:none}
+.loading{font-size:13px;color:#555;padding:20px 0;text-align:center}
 @supports (padding-bottom: env(safe-area-inset-bottom)){
   .modal{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
   .top-bar{padding-top:max(10px, env(safe-area-inset-top))}
@@ -95,14 +98,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span class="yr" id="yl">2026</span>
       <button class="nb" id="ny">&#8250;</button>
     </div>
-    <button class="tb" id="tdy">Today</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="sync-dot ok" id="sync-dot" title="Saved"></span>
+      <button class="tb" id="tdy">Today</button>
+    </div>
   </div>
   <div class="legend" id="legend"></div>
   <div class="grid-wrap">
     <div class="month-col" id="mcol"></div>
     <div class="right-col">
       <div class="col-headers" id="ch"></div>
-      <div id="cal"></div>
+      <div id="cal"><p class="loading">Loading your calendar...</p></div>
     </div>
   </div>
 </div>
@@ -114,24 +120,63 @@ const LABELS={event:'Event',birthday:'Birthday',pto:'PTO',trip:'Trip','sick day'
 const TC={event:'#E24B4A',birthday:'#D4537E',pto:'#7F77DD',trip:'#BA7517','sick day':'#378ADD',holiday:'#EF9F27',work:'#1D9E75'};
 const MSHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-// Types that get a time field (not whole-day by nature)
 const TIMED_TYPES=new Set(['event','work','birthday']);
 
 let year=new Date().getFullYear();
 let evs=[];
+let saveTimer=null;
 
+// ─── Sync dot ────────────────────────────────────────────────
+function setSyncDot(state){
+  const dot=document.getElementById('sync-dot');
+  dot.className='sync-dot '+state;
+  dot.title=state==='ok'?'Saved':state==='saving'?'Saving...':'Error saving';
+}
+
+// ─── KV API calls ────────────────────────────────────────────
+async function loadFromKV(){
+  try{
+    const r=await fetch('/api/events');
+    if(!r.ok)throw new Error('Load failed');
+    const data=await r.json();
+    if(Array.isArray(data))evs=data;
+    setSyncDot('ok');
+  }catch(e){
+    // Fall back to localStorage if network fails
+    try{const r=localStorage.getItem('cal2w_v4');if(r){const p=JSON.parse(r);if(Array.isArray(p))evs=p;}}catch(e2){}
+    setSyncDot('err');
+  }
+}
+
+async function saveToKV(){
+  setSyncDot('saving');
+  // Also mirror to localStorage as fallback
+  try{localStorage.setItem('cal2w_v4',JSON.stringify(evs))}catch(e){}
+  try{
+    const r=await fetch('/api/events',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(evs)
+    });
+    if(!r.ok)throw new Error('Save failed');
+    setSyncDot('ok');
+  }catch(e){
+    setSyncDot('err');
+  }
+}
+
+// Debounce saves — wait 800ms after last change before saving
+function scheduleSave(){
+  if(saveTimer)clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveToKV,800);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
 function dk(d){
-  const y=d.getFullYear();
-  const m=String(d.getMonth()+1).padStart(2,'0');
-  const day=String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r}
 function parseDate(s){return new Date(s+'T12:00:00')}
-
-function load(){try{const r=localStorage.getItem('cal2w_v4');if(r){const p=JSON.parse(r);if(Array.isArray(p))evs=p;}}catch(e){evs=[]}}
-function save(){try{localStorage.setItem('cal2w_v4',JSON.stringify(evs))}catch(e){}}
 
 function fmt12(t){
   if(!t)return '';
@@ -142,7 +187,6 @@ function fmt12(t){
 }
 
 function sortEvents(list){
-  // No time first, then sorted by time ascending
   return [...list].sort((a,b)=>{
     if(!a.time&&!b.time)return 0;
     if(!a.time)return -1;
@@ -181,18 +225,16 @@ function getRowStart(){
   return s;
 }
 
+// ─── Render ──────────────────────────────────────────────────
 function buildLegend(){
-  const el=document.getElementById('legend');
-  el.innerHTML=TYPES.map(t=>`<div class="li"><div class="ld" style="background:${TC[t]}"></div>${LABELS[t]}</div>`).join('');
+  document.getElementById('legend').innerHTML=TYPES.map(t=>`<div class="li"><div class="ld" style="background:${TC[t]}"></div>${LABELS[t]}</div>`).join('');
 }
 
 function buildColHeaders(){
-  const ch=document.getElementById('ch');
-  ch.innerHTML='';
+  const ch=document.getElementById('ch');ch.innerHTML='';
   for(let w=0;w<2;w++){
     DAYS.forEach((d,i)=>{
-      const s=document.createElement('span');
-      s.textContent=d[0];
+      const s=document.createElement('span');s.textContent=d[0];
       const wknd=(i===5||i===6);
       let cls=wknd?'wknd-hdr':'';
       if(w===1&&i===0)cls+=(cls?' ':'')+'w2';
@@ -203,7 +245,6 @@ function buildColHeaders(){
 }
 
 function render(){
-  load();
   document.getElementById('yl').textContent=year;
   buildLegend();buildColHeaders();
   const cal=document.getElementById('cal');
@@ -230,9 +271,7 @@ function render(){
     mb.className='month-block';mb.style.flex=rows.length;
     mb.innerHTML=`<span>${MSHORT[m]}</span>`;
     mcol.appendChild(mb);
-    if(m>months[0]){
-      const div=document.createElement('div');div.className='mdiv';cal.appendChild(div);
-    }
+    if(m>months[0]){const div=document.createElement('div');div.className='mdiv';cal.appendChild(div);}
     rows.forEach(rowStart=>{
       const row=document.createElement('div');row.className='row';
       for(let i=0;i<14;i++){
@@ -263,6 +302,7 @@ function render(){
   });
 }
 
+// ─── Day modal ───────────────────────────────────────────────
 function openDay(d,k){
   const list=getEventsForDate(k);
   let html=`<div class="modal"><div class="handle"></div>
@@ -310,7 +350,6 @@ function onTypeChange(){
   } else {
     if(er)er.className='end-date-row';
   }
-  // Show time field only for timed types
   const tr=document.getElementById('time-row');
   if(tr)tr.className='time-row'+(TIMED_TYPES.has(t)?'':' hidden');
 }
@@ -388,12 +427,14 @@ function saveEv(idx){
   const note=(document.getElementById('eno').value||'').trim();
   const entry={name,type,startDate,endDate,repeat,time,note};
   if(idx!=null)evs[idx]=entry;else evs.push(entry);
-  save();closeModal();render();
+  scheduleSave();
+  closeModal();render();
 }
 
 function delEv(idx){
   evs.splice(idx,1);
-  save();closeModal();render();
+  scheduleSave();
+  closeModal();render();
 }
 
 function showModal(h){const bg=document.getElementById('mbg');bg.innerHTML=h;bg.style.display='flex'}
@@ -407,8 +448,11 @@ document.getElementById('tdy').addEventListener('click',()=>{
   setTimeout(()=>{const c=document.querySelector('.today-cell');if(c)c.scrollIntoView({behavior:'smooth',block:'center'})},100);
 });
 
-load();render();
-setTimeout(()=>{const c=document.querySelector('.today-cell');if(c)c.scrollIntoView({behavior:'smooth',block:'center'})},200);
+// Load from KV on startup, then render
+loadFromKV().then(()=>{
+  render();
+  setTimeout(()=>{const c=document.querySelector('.today-cell');if(c)c.scrollIntoView({behavior:'smooth',block:'center'})},200);
+});
 </script>
 </body>
 </html>
